@@ -1,3 +1,6 @@
+0.05:   Other bugfixes for parsedate problem with single digit hours/minutes 
+	and warnings if argumentlist of command to execute is empty
+
 0.03:
 	Minor bug fixes (reaping of child processes improved, 
         fixed regexp in get_next_execution_time())

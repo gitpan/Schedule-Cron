@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: Cron.pm,v 1.3 2000/06/12 07:25:41 roland Exp $
+# $Id: Cron.pm,v 1.5 2000/07/05 08:02:26 roland Exp $
 
 =head1 NAME
 
@@ -76,7 +76,7 @@ use strict;
 use vars qw($VERSION  $DEBUG);
 use subs qw(dbg);
 
-$VERSION = q$Revision: 1.3 $ =~ /(\d+)\.(\d+)/ && sprintf("%d.%02d",$1-1,$2 );
+$VERSION = q$Revision: 1.5 $ =~ /(\d+)\.(\d+)/ && sprintf("%d.%02d",$1-1,$2 );
 
 my $DEBUG = 0;
 
@@ -414,7 +414,7 @@ returned.
 The C<options>  parameter specifies the  running mode of
 C<Schedule::Cron>.  It can be  either a plain list which
 will be interpreted  as a hash or it  can be a reference
-to  hash. The  following named  parameters (keys  of the
+to a  hash. The following named parameters (keys  of the
 provided hash) are recognized:
 
    detach    if set to one, detach the scheduler process
@@ -683,11 +683,15 @@ sub execute {
     $args = $args->[1];
     
     my @args;
-    if (defined($args)) {
+    if (defined($args) && defined($args->[0])) {
       push @args,@$args;
+      dbg "Calling dispatch with ","@args";
+      $0 = "Schedule::Cron Dispatch (".join(",",@$args).")";
     }
-    dbg "Calling dispatch with ","@args";
-    $0 = "Schedule::Cron Dispatch (".join(",",@$args).")";
+    else {
+      dbg "Calling dispatch with no args";
+      $0 = "Schedule::Cron Dispatch (no args)";
+    }
     
     &$dispatch(@args);
     dbg "Exiting";
@@ -773,9 +777,9 @@ sub calc_time {
       my ($mon,$mday,$year);
 #      dbg "M: $dest_mon MD: $dest_mday WD: $dest_wday Y:$dest_year";
       $dest_mday = 1 if $dest_mon != $now_mon;
-      my $t = parsedate("$dest_year/$dest_mon/$dest_mday");
-      ($mon,$mday,$year) = 
-	(localtime(parsedate("$WDAYS[$dest_wday]",PREFER_FUTURE=>1,NOW=>$t-1)))[4,3,5];
+      my $t = parsedate(sprintf("%4.4d/%2.2d/%2.2d",$dest_year,$dest_mon,$dest_mday));
+      ($mon,$mday,$year) =  
+	(localtime(parsedate("$WDAYS[$dest_wday]",PREFER_FUTURE=>1,NOW=>$t-1)))[4,3,5]; 
       $mon++;
       $year += 1900;
 
@@ -785,7 +789,8 @@ sub calc_time {
 	$dest_mon = $mon;
 	$dest_year = $year;
 	$dest_mday = 1;
-	$dest_wday = (localtime(parsedate("$dest_year/$dest_mon/$dest_mday")))[6];
+	$dest_wday = (localtime(parsedate(sprintf("%4.4d/%2.2d/%2.2d",
+						  $dest_year,$dest_mon,$dest_mday))))[6];
 	next;
       }
       
@@ -805,12 +810,13 @@ sub calc_time {
 	unless (defined ($dest_hour = $self->get_nearest($dest_hour,$expanded->[1]))) {
 	  # Hour to match is at the next day ==> redo it
 	  $dest_hour = $expanded->[1]->[0];
-	  my $t = parsedate("$dest_hour:$dest_min $dest_year/$dest_mon/$dest_mday");
+	  my $t = parsedate(sprintf("%2.2d:%2.2d %4.4d/%2.2d/%2.2d",
+				    $dest_hour,$dest_min,$dest_year,$dest_mon,$dest_mday));
 	  ($dest_mday,$dest_mon,$dest_year,$dest_wday) = 
 	    (localtime(parsedate("+ 1 day",NOW=>$t)))[3,4,5,6];
-	  $dest_mon++;
+	  $dest_mon++; 
 	  $dest_year += 1900;
-	  next;
+	  next; 
 	}
       }
     } else {
@@ -818,14 +824,15 @@ sub calc_time {
     }
     
     # Check for minute
-    if ($expanded->[0]->[0] ne '*') {
+  if ($expanded->[0]->[0] ne '*') {
       if ($dest_hour != $now_hour) {
 	$dest_min = $expanded->[0]->[0];
       } else {
 	unless (defined ($dest_min = $self->get_nearest($dest_min,$expanded->[0]))) {
 	  # Minute to match is at the next hour ==> redo it
 	  $dest_min = $expanded->[0]->[0];
-	  my $t = parsedate("$dest_hour:$dest_min $dest_year/$dest_mon/$dest_mday");
+	  my $t = parsedate(sprintf("%2.2d:%2.2d %4.4d/%2.2d/%2.2d",
+				    $dest_hour,$dest_min,$dest_year,$dest_mon,$dest_mday));
 	  ($dest_hour,$dest_mday,$dest_mon,$dest_year,$dest_wday) = 
 	    (localtime(parsedate(" + 1 hour",NOW=>$t)))  [2,3,4,5,6];
 	  $dest_mon++;

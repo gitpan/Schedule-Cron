@@ -139,12 +139,15 @@ specified in  a format understood by  'parsedate' from Time::ParseDate
 CREDITS
 -------
 
-Thanx to
+Many thanks to
 
   Peter Vary 
   Bray Jones 
+  David Parker
+  Philippe Verdret
+  Lars Holowko
 
-for submitting bug reports.
+for submitting bug reports and patches.
 
 COPYRIGHT
 ---------

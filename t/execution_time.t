@@ -95,7 +95,16 @@ Reftime: Mon Dec 27 20:14 1999
         0       21       27        *      Wed         21:00 27/12/1999 Monday
         0       19       27        *      Wed         19:00 29/12/1999 Wednesday
         0    19,21       27        *      Wed         21:00 27/12/1999 Monday
-20-30/5,17    19,21       27        *      Wed         21:17 27/12/1999 Monday
+20-30/5,17   19,21       27        *      Wed         21:17 27/12/1999 Monday
+
+# Check for parsedate-normalization
+# (thanx to Lars Holokowo)
+# =================================
+
+        1        3       30        6        *         03:01 30/06/2000 Monday
+        0       03       30        6        *         03:00 30/06/2000 Monday
+       00        3       30        6        *         03:00 30/06/2000 Monday
+        0        3       30        6        *         03:00 30/06/2000 Monday
 
 end
 
