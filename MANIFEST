@@ -2,6 +2,7 @@ Cron.pm
 MANIFEST
 Makefile.PL
 README
+CHANGES
 ChangeLog
 t/execution_time.t
 t/startup.t

@@ -1,3 +1,13 @@
+2000-06-12  Roland Huss  <roland@consol.de>
+
+	* Cron.pm: Fixed bug in regexp splitting the crontab entry in
+	get_next_execution_time() report by Peter.Vary@ireland.sun.com
+
+2000-03-23  Roland Huss  <roland@consol.de>
+	* Cron.pm: fixed problem when reaping childs: Now SIGCHLD handler
+	can handle more than one finished child at once (thanx to Bray
+	Jones for discovering this bug)
+	
 2000-01-02  Roland Huss  <roland@trurl.int.consol.de>
 
 	* Initial release 0.001 

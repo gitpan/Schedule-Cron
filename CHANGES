@@ -1,0 +1,5 @@
+0.03:
+	Minor bug fixes (reaping of child processes improved, 
+        fixed regexp in get_next_execution_time())
+0.01:
+	Initial Release

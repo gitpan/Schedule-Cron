@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: Cron.pm,v 1.1.1.1 2000/01/02 14:37:47 roland Exp $
+# $Id: Cron.pm,v 1.3 2000/06/12 07:25:41 roland Exp $
 
 =head1 NAME
 
@@ -76,7 +76,7 @@ use strict;
 use vars qw($VERSION  $DEBUG);
 use subs qw(dbg);
 
-$VERSION = q$Revision: 1.1.1.1 $ =~ /(\d+)\.(\d+)/ && sprintf("%d.%02d",$1-1,$2 );
+$VERSION = q$Revision: 1.3 $ =~ /(\d+)\.(\d+)/ && sprintf("%d.%02d",$1-1,$2 );
 
 my $DEBUG = 0;
 
@@ -116,7 +116,10 @@ my @LOWMAP = (
 	     );
 
 sub REAPER {
-  my $waitedpid = wait;
+  my $waitedpid = 0;
+  while($waitedpid != -1) {
+    $waitedpid = wait;
+  }
   $SIG{CHLD} = \&REAPER;
 }
 $SIG{CHLD} = \&REAPER;
@@ -578,7 +581,7 @@ sub get_next_execution_time {
   my $cron_entry = shift;
   my $time = shift;
   
-  $cron_entry = [ split /\s*/,$cron_entry ] unless ref($cron_entry);
+  $cron_entry = [ split /\s+/,$cron_entry ] unless ref($cron_entry);
 
 
   # Expand and check entry:
