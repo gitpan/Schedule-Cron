@@ -8,3 +8,6 @@ t/execution_time.t
 t/startup.t
 t/load_crontab.t
 t/test.crontab
+t/entry.t
+t/nofork.t
+META.yml                                 Module meta-data (added by MakeMaker)

@@ -1,6 +1,27 @@
+2004-01-30  Roland Huss  <roland@consol.de>
+
+	* t/entry.t (Module): added and extended tests
+
+2004-01-29  Roland Huss  <roland@consol.de>
+
+	* Cron.pm (add_entry): added heuristic for parsing crontab with 6
+	time columns
+
+2004-01-28    <roland.huss@sun.com>
+
+	* Cron.pm (new): added new options 'nofork', 'skip', 'catch' and
+	'log'
+	(get_next_execution_time): allow a sixth column for specifing the
+	second to start up
+
+2002-08-09  Roland Huss  <roland@consol.de>
+
+	* Cron.pm (get_next_execution_time): added recognition of "*/5"
+	notations (thanks to Loic Paillotin for spotting this problem)
+
 2002-04-02  Roland Huss  <roland@consol.de>
 
-	* Released Release 0.0.5
+	* Released 0.0.5
 
 2000-07-05  Roland Huss  <roland@consol.de>
 

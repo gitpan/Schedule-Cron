@@ -1,5 +1,6 @@
 #!perl -w
 
+use Test::More;
 use Schedule::Cron;
 use Time::ParseDate;
 
@@ -16,33 +17,47 @@ while (defined($_=<DATA>) && $_ !~ /end/i) {
   s/^\s*(.*)\s*/$1/;
   next if /^\#/ || /^$/;
   my @args = split(/\s+/,$_,6);
+  my $date;
 
-  push @entries,[$time, [@args[0..4]]];
-  my $res_date = parsedate($args[5],UK=>1);
+  my $rest = pop @args;
+  my ($col6,$more_args) = split(/\s+/,$rest,2);
+  if ($col6 =~ /^[\d\-\*\,\/]+$/)
+  {
+      push @args,$col6;
+      $date = $more_args;
+  }
+  else
+  {
+      $date = $rest;
+  }
+
+  push @entries,[$time, \@args];
+  my $res_date = parsedate($date,UK=>1);
   die "Internal error" unless $res_date;
   push @results,$res_date;
 }
 
 my $cron = new Schedule::Cron(sub {});
 
-print "1..",scalar(@entries),"\n";
-my $i;
-for ($i=0;$i<=$#entries;$i++) {
-  my $t = $cron->get_next_execution_time($entries[$i]->[1],$entries[$i]->[0]);
-  print "# Cron-Entry: ",join(" ",@{$entries[$i]->[1]}),"\n";
-  print "# Ref-Time:   ",scalar(localtime($entries[$i]->[0])),"\n";
-  print "# Calculated: ",scalar(localtime($t)),"\n";
-  print "# Expected:   ",scalar(localtime($results[$i])),"\n";
+plan tests => scalar(@entries);
 
-  print (($t == $results[$i] ? "" : "not "),"ok ",$i+1,"\n");
+my $i;
+for ($i=0;$i<=$#entries;$i++) 
+{
+    my $t = $cron->get_next_execution_time($entries[$i]->[1],$entries[$i]->[0]);
+    print "# Cron-Entry: ",join(" ",@{$entries[$i]->[1]}),"\n";
+    print "# Ref-Time:   ",scalar(localtime($entries[$i]->[0])),"\n";
+    print "# Calculated: ",scalar(localtime($t)),"\n";
+    print "# Expected:   ",scalar(localtime($results[$i])),"\n";
+    ok($t == $results[$i]);
 } 
 __DATA__
-Reftime: Mon Dec 27 20:14 1999
+Reftime: Mon Dec 27 20:14:14 1999
 
 # Minutes:
 # ========
 
-      *      *     *     *     *            20:15 27/12/1999 Monday
+      *      *     *     *     *     0      20:15 27/12/1999 Monday
      20      *     *     *     *            20:20 27/12/1999 Monday
   10-50      *     *     *     *            20:15 27/12/1999 Monday
 13-30/4      *     *     *     *            20:17 27/12/1999 Monday
@@ -89,6 +104,12 @@ Reftime: Mon Dec 27 20:14 1999
         0       19        *        *      Mon         19:00 03/01/2000 Monday
        13       14        *        * Sun-Sat/2        14:13 28/12/1999 Tuesday
 
+# Seconds
+      *      *     *     *     *   *        20:14:15 27/12/1999 Monday
+      *      *     *     *     *   5-10     20:15:05 27/12/1999 Monday
+      *      *     *     *     *   13-30/4  20:14:17 27/12/1999 Monday
+      *      *     *     *     *   18       20:14:18 27/12/1999 Monday
+ 
 # Horrible combinations ;-):
 # ==========================
 
@@ -105,6 +126,12 @@ Reftime: Mon Dec 27 20:14 1999
         0       03       30        6        *         03:00 30/06/2000 Monday
        00        3       30        6        *         03:00 30/06/2000 Monday
         0        3       30        6        *         03:00 30/06/2000 Monday
+
+# Bug reported by Loic Paillotin
+# ==============================
+        5,10,25,30,35,40,45,50,55 *   *  * 	*         20:25 27/12/1999 Monday
+	    5,10,25,30,35,40,45,50,55 * * * *             20:25 27/12/1999 Monday
+        */5                       *   *  * 	*         20:15 27/12/1999 Monday
 
 end
 

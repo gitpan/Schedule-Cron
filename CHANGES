@@ -1,8 +1,26 @@
-0.05:   Other bugfixes for parsedate problem with single digit hours/minutes 
-	and warnings if argumentlist of command to execute is empty
+0.9
 
-0.03:
-	Minor bug fixes (reaping of child processes improved, 
-        fixed regexp in get_next_execution_time())
-0.01:
-	Initial Release
+- Logging: It is now possible to add a reference to a custom logging
+  subroutine to the constructor which will be used for logging certain
+  events.
+- NoFork: The option 'nofork' prevents Cron.pm from creating a new
+  child process. Instead, the job is run within the current
+  process. You can use the 'skip' and 'catch' options to tune the
+  behaviour.
+- Seconds granularity: Cron times can now be specified up to the
+  second. 
+- Bugfix: Thinks like "*/5" now work like expected
+
+0.05   
+
+- Other bugfixes for parsedate problem with single digit hours/minutes 
+  and warnings if argumentlist of command to execute is empty
+
+0.03
+
+- Minor bug fixes (reaping of child processes improved, 
+  fixed regexp in get_next_execution_time())
+
+0.01
+
+- Initial Release

@@ -48,6 +48,7 @@
         0       19        *        *      Mon         qw(19:00 03/01/2000 Monday)
        13       14        *        * Sun-Sat/2        qw(14:13 28/12/1999 Tuesday)
 
+
 # Horrible combinations ;-):
 # ==========================
 
@@ -55,6 +56,14 @@
         0       19       27        *      Wed         qw(19:00 29/12/1999 Wednesday)
         0    19,21       27        *      Wed         qw(21:00 27/12/1999 Monday)
 20-30/5,17    19,21       27        *      Wed         qw(21:17 27/12/1999 Monday)
+
+
+# With seconds (6th column)
+# =========================
+       *         *        *        *        *     *         qw(seconds_test)
+       *         *        *        *        *     0-59/2    qw(seconds_test)
+       *         *        *        *        *     2,4,6     (5 +  4)."seconds_test"
+
 
 
 

@@ -78,7 +78,9 @@ In order  to install and use  this package you will  need Perl version
 
 You need a fork()-aware Perl for dispatching the cron jobs. (Honestly,
 I don't yet know, whether the  Win32 Port provides this system call. I
-dare that this is the case). This might change in the future.
+dare  that this  is the  case). This  might change  in the  future. On
+system without a working fork() you can use the 'nofork' option to run
+your jobs within the current process.
 
 OS-DEPENDENCIES
 ---------------
@@ -136,23 +138,10 @@ execution date  (relative to  the reference time).   The dates  can be
 specified in  a format understood by  'parsedate' from Time::ParseDate
 (like 'now  + 5  days').  Please include  the output of  this command.
 
-CREDITS
--------
-
-Many thanks to
-
-  Peter Vary 
-  Bray Jones 
-  David Parker
-  Philippe Verdret
-  Lars Holowko
-
-for submitting bug reports and patches.
-
 COPYRIGHT
 ---------
 
-Copyright 1999,2000 Roland Huss.
+Copyright 1999,2000,2005 Roland Huss.
 
 This library is  free software; you can redistribute  it and/or modify
 it under the same terms as Perl itself.

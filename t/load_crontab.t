@@ -2,29 +2,29 @@
 
 use Schedule::Cron;
 use File::Basename;
-
+use strict;
 
 my $crontab = dirname($0)."/test.crontab";
 
 my $cron;
 my @tests = (
-	     qq#
+             qq(
                 \$cron = new Schedule::Cron( sub {},
-			                    file => "$crontab",
-			                    eval => 1)
-               #,
-             qq#
+                                             file => "$crontab",
+                                             eval => 1)
+                ),
+             qq(
                 \$cron = new Schedule::Cron(sub {});
                 \$cron->load_crontab("$crontab");
-               #,
-	     qq#
+                ),
+             qq(
                 \$cron = new Schedule::Cron(sub {});
                 \$cron->load_crontab(file=>"$crontab",eval=>1);
-               #,
-	     qq#
+                ),
+             qq(
                 \$cron = new Schedule::Cron(sub {});
                 \$cron->load_crontab({file=>"$crontab",eval=>1});
-               #
+                )
 	     
 );
 
@@ -42,4 +42,10 @@ foreach (@tests) {
 #  print "Cron:\n",Dumper($cron);
   $i++;
 }
+
+# Check for time parsing
+$cron = new Schedule::Cron(sub {});
+$cron->load_crontab($crontab);
+
+
 
