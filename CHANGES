@@ -1,3 +1,9 @@
+0.96 
+
+- Applied patch for #4917 in order to be smarter to existing SIGCHLD handler and to 
+  reap only own childs.
+
+
 0.95 
 
 - If a scheduled method in 'nofork' manipulates the execution queue with 

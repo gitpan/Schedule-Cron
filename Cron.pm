@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: Cron.pm,v 1.12 2006/11/05 10:52:08 roland Exp $
+# $Id: Cron.pm,v 1.13 2006/11/05 17:13:41 roland Exp $
 
 =head1 NAME
 
@@ -69,10 +69,12 @@ use Data::Dumper;
 use strict;
 use vars qw($VERSION  $DEBUG);
 use subs qw(dbg);
+use POSIX ":sys_wait_h";
 
-$VERSION = 0.95;
+$VERSION = 0.96;
 
 our $DEBUG = 0;
+my %STARTEDCHILD = ();
 
 my @WDAYS = qw(
                  Sunday
@@ -113,13 +115,13 @@ my @LOWMAP = (
              );
 
 sub REAPER {
-  my $waitedpid = 0;
-  while($waitedpid != -1) {
-    $waitedpid = wait;
-  }
-  $SIG{CHLD} = \&REAPER;
+    foreach my $pid (keys %STARTEDCHILD) {
+        if (my $res = waitpid($pid, WNOHANG) > 0) {
+            # We reaped a truly running process
+            delete $STARTEDCHILD{$pid};
+        }
+    }
 }
-$SIG{CHLD} = \&REAPER;
 
 =item $cron = new Schedule::Cron($dispatcher,[extra args])
 
@@ -127,7 +129,7 @@ Creates a new C<Cron> object.  C<$dispatcher> is a reference to a subroutine,
 which will be called by default.  C<$dispatcher> will be invoked with the
 arguments parameter provided in the crontab entry if no other subroutine is
 specified. This can be either a single argument containing the argument
-parameter literally as string (default behavior) or a list of arguments when
+parameter literally has string (default behavior) or a list of arguments when
 using the C<eval> option described below.
 
 The date specifications must be either provided via a crontab like file or
@@ -686,6 +688,16 @@ sub run
     delete $self->{entries_changed};
     die "Nothing in schedule queue" unless @{$self->{queue}};
     
+    # Install reaper now.
+    my $old_child_handler = $SIG{'CHLD'};
+    $SIG{'CHLD'} = sub {
+        &REAPER();
+        if ($old_child_handler)
+        {
+            &$old_child_handler();
+        }
+    };
+
     my $mainloop = sub 
     {
         while (42) 
@@ -1003,6 +1015,8 @@ sub execute
       {
           # Parent
           $log->(0,"Schedule::Cron - Forking child PID $pid") if $log;
+          # Register PID
+          $STARTEDCHILD{$pid} = 1;
           return;
       } 
   }
