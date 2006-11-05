@@ -1,3 +1,19 @@
+0.95 
+
+- If a scheduled method in 'nofork' manipulates the execution queue with 
+  add_entry or delete_entry, it will be picked up during the next run. 
+
+- Clarified different behaviour of global variables within the fork/norfork 
+  mode in the documentation
+
+- Fixed warning about non-numeric arguments when sorting. 
+
+- Fixed bug which called to an undefined methods in a die-message
+
+- Pretty print a hashref in $0 if provided as argument and the 
+  prefix for the name to be shown in the process list can be configured
+  with the option "processprefix"
+
 0.9
 
 - Logging: It is now possible to add a reference to a custom logging

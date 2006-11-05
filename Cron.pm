@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: Cron.pm,v 1.10 2005/01/03 17:25:19 roland Exp $
+# $Id: Cron.pm,v 1.12 2006/11/05 10:52:08 roland Exp $
 
 =head1 NAME
 
@@ -70,9 +70,9 @@ use strict;
 use vars qw($VERSION  $DEBUG);
 use subs qw(dbg);
 
-$VERSION = 0.9;
+$VERSION = 0.95;
 
-my $DEBUG = 0;
+our $DEBUG = 0;
 
 my @WDAYS = qw(
                  Sunday
@@ -127,7 +127,7 @@ Creates a new C<Cron> object.  C<$dispatcher> is a reference to a subroutine,
 which will be called by default.  C<$dispatcher> will be invoked with the
 arguments parameter provided in the crontab entry if no other subroutine is
 specified. This can be either a single argument containing the argument
-parameter literally has string (default behavior) or a list of arguments when
+parameter literally as string (default behavior) or a list of arguments when
 using the C<eval> option described below.
 
 The date specifications must be either provided via a crontab like file or
@@ -147,12 +147,17 @@ Load the crontab entries from <crontab>
 
 Eval the argument parameter in a crontab entry before calling the subroutine
 (instead of literally calling the dispatcher with the argument parameter as
-string
+string)
 
 =item nofork => 1
 
 Don't fork when starting the scheduler. Instead, the jobs are executed within
-current process.
+current process. In your executed jobs, you have full access to the global
+variables of your script and hence might influence other jobs running at a
+different time. This behaviour is fundamentally different to the 'fork' mode,
+where each jobs gets its own process and hence a B<copy> of the process space,
+independent of each other job and the main process. This is due to the nature
+of the  C<fork> system call. 
 
 =item skip => 1
 
@@ -190,6 +195,14 @@ purposes for example like in the following code snippet:
    }
   
    my $cron = new Schedule::Cron(.... , log => $log_method);
+
+=item processprefix => <name>
+
+Cron::Schedule sets the process' name (i.e. C<$0>) to contain some informative
+messages like when the next job executes or with which arguments a job is
+called. By default, the prefix for this labels is C<Schedule::Cron>. With this
+option you can set it to something different. You can e.g. use C<$0> to include
+the original process name.
 
 =back
 
@@ -483,6 +496,7 @@ sub add_entry
      args => $args
     };
     
+    $self->{entries_changed} = 1;
     #  dbg "Added Args ",Dumper($self->{args});
     
     my $index = $#{$self->{time_table}};
@@ -537,7 +551,7 @@ sub list_entries
 =item $entry = $cron->get_entry($idx)
 
 Get a single entry. C<$entry> is either a hashref with the possible keys
-C<time>, C<dispatch> and C<args> (see C<get_entries()>) or undef if no entry
+C<time>, C<dispatch> and C<args> (see C<list_entries()>) or undef if no entry
 with the given index C<$idx> exists.
 
 =cut
@@ -570,6 +584,7 @@ sub delete_entry
 
     if ($idx <= $#{$self->{time_table}})
     {
+        $self->{entries_changed} = 1;
         return splice @{$self->{time_table}},$idx,1;
     }
     else
@@ -668,6 +683,7 @@ sub run
     my $log = $cfg->{log};
 
     $self->build_initial_queue;
+    delete $self->{entries_changed};
     die "Nothing in schedule queue" unless @{$self->{queue}};
     
     my $mainloop = sub 
@@ -691,7 +707,7 @@ sub run
             {
                 $sleep = $time - $now;
             }
-            $0 = "Schedule::Cron MainLoop - next: ".scalar(localtime($time));
+            $0 = $self->get_process_prefix()." MainLoop - next: ".scalar(localtime($time));
             die "No time found\n" unless $time;
 
             dbg "R: sleep = $sleep | ",scalar(localtime($time))," (",scalar(localtime($now)),")";
@@ -700,8 +716,16 @@ sub run
                 sleep($sleep);
                 $sleep = $time - time;
             }
+
             $self->execute($index,$cfg);
-            $self->update_queue($index);
+
+            if ($self->{entries_changed}) {
+               dbg "rebuilding queue";
+               $self->build_initial_queue;
+               delete $self->{entries_changed};
+            } else {
+               $self->update_queue($index);
+            }
         } 
     };
 
@@ -762,7 +786,7 @@ sub run
             }
             open STDERR, '>&STDOUT' or die "Can't dup stdout: $!";
             
-            $0 = "Schedule::Cron MainLoop";
+            $0 = $self->get_process_prefix()." MainLoop";
             &$mainloop();
         }
     } 
@@ -782,6 +806,7 @@ Remove all scheduled entries
 sub clean_timetable 
 { 
     my $self = shift;
+    $self->{entries_changed} = 1;
     $self->{time_table} = [];
 }
 
@@ -904,7 +929,7 @@ sub get_next_execution_time
               push @res,$t;
           }
       }
-      push @expanded, [ sort { $a <=> $b} @res];
+      push @expanded, ($#res == 0 && $res[0] eq '*') ? [@res] : [ sort { $a <=> $b} @res];
   }
   
   # Calculating time:
@@ -965,7 +990,7 @@ sub execute
   my $index = shift;
   my $cfg = shift || $self->{cfg};
   my $entry = $self->get_entry($index) 
-    || die "Internal: No entry with index $index found in ",Dumper([$self->get_entries()]);
+    || die "Internal: No entry with index $index found in ",Dumper([$self->list_entries()]);
 
   my $pid;
 
@@ -994,8 +1019,9 @@ sub execute
       push @args,@$args;
   }
 
-  my $args_label = @args ? "with (".join(",",@args).")" : "";
-  $0 = "Schedule::Cron Dispatch $args_label"
+
+  my $args_label = @args ? "with (".join(",",$self->prepare_args(@args)).")" : "";
+  $0 = $self->get_process_prefix()." Dispatch $args_label"
     unless $cfg->{nofork};
   $log->(0,"Schedule::Cron - Starting job $index $args_label")
     if $log;
@@ -1260,6 +1286,43 @@ sub get_nearest
       }
   }
   return undef;
+}
+
+
+# prepare a list of object for pretty printing e.g. in the process list
+sub prepare_args {
+    my $self = shift;
+    my @args = @_;
+    my @ret = ();
+    for my $arg (@args)
+    {
+        if (ref($arg) eq 'HASH') 
+        {
+            my $val = "{";
+            foreach my $key (keys %{$arg}) 
+            {
+                $val .= "$key=>".$args[0]->{$key}.", ";
+            }
+            if (length($val)>1)
+            {
+                chop $val; chop $val;
+            }
+            $val .= "}";
+            push @ret,$val;
+        } 
+        else
+        {
+            push @ret,$arg;
+        }         
+    }
+    return @ret;
+}
+
+# get the prefix to use when setting $0
+sub get_process_prefix { 
+    my $self = shift;
+    my $prefix = $self->{cfg}->{processprefix} || "Schedule::Cron";
+    return $prefix;
 }
 
 # our very own debugging routine
