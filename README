@@ -76,11 +76,9 @@ In order  to install and use  this package you will  need Perl version
 5.005  or better.   Furthermore  you need  the module  Time::ParseDate
 (contained in the Time-modules-xx.xxxxx) available on CPAN.
 
-You need a fork()-aware Perl for dispatching the cron jobs. (Honestly,
-I don't yet know, whether the  Win32 Port provides this system call. I
-dare  that this  is the  case). This  might change  in the  future. On
-system without a working fork() you can use the 'nofork' option to run
-your jobs within the current process.
+You need a fork()-aware Perl for dispatching the cron jobs. This might
+change in the future. On systems without a fork() system call you can
+use the 'nofork' option to run your jobs within the current process.
 
 OS-DEPENDENCIES
 ---------------
@@ -141,12 +139,12 @@ specified in  a format understood by  'parsedate' from Time::ParseDate
 COPYRIGHT
 ---------
 
-Copyright 1999,2000,2005 Roland Huss.
+Copyright 1999-2006 Roland Huss.
 
 This library is  free software; you can redistribute  it and/or modify
 it under the same terms as Perl itself.
 
 Enjoy it...
 							    ...roland
-                                                     roland@consol.de
+                                                       roland@cpan.org
 

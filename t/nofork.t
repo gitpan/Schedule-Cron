@@ -67,25 +67,32 @@ ok($@ eq "ok\n","Cron has been run: $@");
 
 # No-Fork with 'catch' option.
 $count = 0;
-$dispatch_1 = 
-  sub {
-      $count++;
-      die "Exception";
-  };
 
-$SIG{ALRM} = sub { 
-    ok($count > 0,"Job has run");
-    exit;
-};
+SKIP: {
+    eval { alarm 0 };
+    skip "alarm() not available", 1 if $@;
 
-$cron = new Schedule::Cron($dispatch_1,{nofork => 1,log => sub {print "# ",$_[1],"\n"}});
-$cron->add_entry("* * * * * *");
-eval
-{
-    alarm(3);
-    $cron->run(catch => 1);
-};
-ok(!$@,"Job has died: $@");
+    $dispatch_1 = 
+      sub {
+          $count++;
+          die "Exception";
+      };
+    
+    $SIG{ALRM} = sub { 
+        ok($count > 0,"Job has run");
+        exit;
+    };
+    
+    $cron = new Schedule::Cron($dispatch_1,{nofork => 1,log => sub {print "# ",$_[1],"\n"}});
+    $cron->add_entry("* * * * * *");
+    eval
+    {
+        alarm(3);
+        $cron->run(catch => 1);
+    };
+    ok(!$@,"Job has died: $@");
+ }
+
 
 
 

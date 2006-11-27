@@ -1,20 +1,19 @@
 #!perl -w
 
 # Startup Test:
-# $Id: startup.t,v 1.7 2006/11/27 13:42:52 roland Exp $
+# $Id: sighandler.t,v 1.2 2006/11/27 13:42:52 roland Exp $
 
 use Schedule::Cron;
 use Test::More tests => 1;
 
 $| = 1;
-#print STDERR " (may take a minute) ";
 
 SKIP: {
     eval { alarm 0 };
     skip "alarm() not available", 1 if $@;
 
-    $SIG{QUIT} = sub { 
-        alarm(0);
+    # Check, whether an already installed signalhandler is called
+    $SIG{CHLD} = sub { 
         pass;
         exit;
     };
@@ -24,11 +23,9 @@ SKIP: {
         exit;
     };
     
-    $cron = new Schedule::Cron(sub { kill QUIT, shift; alarm 0; });
-    $cron->add_entry("* * * * * *",$$);
     
+    my $cron = new Schedule::Cron(sub { sleep(1) });
+    $cron->add_entry("* * * * * */2");
     alarm(5);
     $cron->run;
 }
-
-

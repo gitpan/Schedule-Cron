@@ -1,3 +1,18 @@
+2006-11-27  Roland Huss  <roland@consol.de>
+
+	* Cron.pm (REAPER): Added support for plattforms where POSIX is
+	not available.
+	(run): Call previous childhandler only if it is a coderef
+
+2006-11-08  Roland Huss  <roland@consol.de>
+
+	* Cron.pm (run): Removed leading space when no process prefix is
+	used (for backwards compatibility)
+
+2006-11-05  Roland Huss  <roland@consol.de>
+
+	* CHANGES: added long forgotten patch for child process handling
+
 2006-11-05  Roland Huss  <roland@cpan.org>
 
 	* CHANGES: added patches and suggestions from

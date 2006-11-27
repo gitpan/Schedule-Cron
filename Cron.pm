@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: Cron.pm,v 1.13 2006/11/05 17:13:41 roland Exp $
+# $Id: Cron.pm,v 1.16 2006/11/27 13:42:52 roland Exp $
 
 =head1 NAME
 
@@ -69,9 +69,19 @@ use Data::Dumper;
 use strict;
 use vars qw($VERSION  $DEBUG);
 use subs qw(dbg);
-use POSIX ":sys_wait_h";
 
-$VERSION = 0.96;
+my $HAS_POSIX;
+
+BEGIN {
+  eval { 
+    require POSIX;
+    import POSIX ":sys_wait_h";
+  };
+  $HAS_POSIX = $@ ? 0 : 1;
+}
+
+
+$VERSION = 0.97;
 
 our $DEBUG = 0;
 my %STARTEDCHILD = ();
@@ -115,10 +125,22 @@ my @LOWMAP = (
              );
 
 sub REAPER {
-    foreach my $pid (keys %STARTEDCHILD) {
-        if (my $res = waitpid($pid, WNOHANG) > 0) {
-            # We reaped a truly running process
-            delete $STARTEDCHILD{$pid};
+    if ($HAS_POSIX)
+    {
+        # Only on platforms supporting POSIX semantisc
+        foreach my $pid (keys %STARTEDCHILD) {
+            my $res = $HAS_POSIX ? waitpid($pid, WNOHANG) : waitpid($pid,0);
+            if ($res > 0) {
+                # We reaped a truly running process
+                delete $STARTEDCHILD{$pid};
+            }
+        }
+    } 
+    else
+    {
+        my $waitedpid = 0;
+        while($waitedpid != -1) {
+            $waitedpid = wait;
         }
     }
 }
@@ -216,6 +238,7 @@ sub new
     my $dispatcher = shift || die "No dispatching sub provided";
     die "Dispatcher not a ref to a subroutine" unless ref($dispatcher) eq "CODE";
     my $cfg = ref($_[0]) eq "HASH" ? $_[0] : {  @_ };
+    $cfg->{processprefix} = "Schedule::Cron" unless $cfg->{processprefix};
     my $self = { 
                 cfg => $cfg,
                 dispatcher => $dispatcher,
@@ -692,7 +715,7 @@ sub run
     my $old_child_handler = $SIG{'CHLD'};
     $SIG{'CHLD'} = sub {
         &REAPER();
-        if ($old_child_handler)
+        if ($old_child_handler && ref $old_child_handler eq 'CODE')
         {
             &$old_child_handler();
         }
@@ -1551,7 +1574,7 @@ Provide a C<reload()> method for reexaming the crontab file
 
 =head1 COPYRIGHT
 
-Copyright 1999,2000,2004 Roland Huss.
+Copyright 1999-2006 Roland Huss.
 
 This library is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
