@@ -39,7 +39,7 @@ Cron - cron-like scheduler for Perl subroutines
 This module provides a simple but complete cron like scheduler.  I.e this
 modules can be used for periodically executing Perl subroutines.  The dates and
 parameters for the subroutines to be called are specified with a format known
-as crontab entry (L<"METHODS">, C<add_entry()> and L<crontab(5)>)
+as crontab entry (see L<"METHODS">, C<add_entry()> and L<crontab(5)>)
 
 The philosophy behind C<Schedule::Cron> is to call subroutines periodically
 from within one single Perl program instead of letting C<cron> trigger several
@@ -81,7 +81,7 @@ BEGIN {
 }
 
 
-$VERSION = 0.97;
+$VERSION = "0.97_01";
 
 our $DEBUG = 0;
 my %STARTEDCHILD = ();
@@ -197,6 +197,19 @@ Catch any exception raised by a job. This is especially useful in combination wi
 the C<nofork> option to avoid stopping the main process when a job raises an
 exception (dies).
 
+=item after_job => \&after_sub
+
+Call a subroutine after a job has been run. The first argument is the return
+value of the dispatched job, the reminding arguments are the arguments with
+which the dispatched job has been called.
+
+Example:
+
+   my $cron = new Schedule::Cron(..., after_job => sub {
+          my ($ret,@args) = @_;
+          print "Return value: ",$ret," - job arguments: (",join ":",@args,")\n";
+   });
+
 =item log => \&log_sub
 
 Install a logging subroutine. The given subroutine is called for several events
@@ -204,7 +217,7 @@ during the lifetime of a job. This method is called with two arguments: A log
 level of 0 (info),1 (warning) or 2 (error) depending on the importance of the
 message and the message itself.
 
-For example, you could use I<Log4Perl> (L<http://log4perl.sf.net>) for logging
+For example, you could use I<Log4perl> (L<http://log4perl.sf.net>) for logging
 purposes for example like in the following code snippet:
 
    use Log::Log4perl;
@@ -214,7 +227,7 @@ purposes for example like in the following code snippet:
       my ($level,$msg) = @_;
       my $DBG_MAP = { 0 => $INFO, 1 => $WARN, 2 => $ERROR };
 
-      my $logger = Log::Log4Perl->get_logger("My::Package");
+      my $logger = Log::Log4perl->get_logger("My::Package");
       $logger->log($DBG_MAP->{$level},$msg);
    }
   
@@ -315,6 +328,10 @@ sub load_crontab
   while (<F>) 
   {
       $line++;
+      # Strip off trailing comments and ignore empty 
+      # or pure comments lines:
+      s/#.*$//;
+      next if /^$/;
       next if /^$/;
       next if /^\s*#/;
       chomp;
@@ -567,7 +584,7 @@ sub list_entries
     foreach my $entry (@{$self->{time_table}})
     {
         # Deep copy $entry
-        push @ret,$self->deep_copy_entry($entry);
+        push @ret,$self->_deep_copy_entry($entry);
     }
     return @ret;
 }
@@ -588,7 +605,7 @@ sub get_entry
     my $entry = $self->{time_table}->[$idx];
     if ($entry)
     {
-        return $self->deep_copy_entry($entry);
+        return $self->_deep_copy_entry($entry);
     }
     else
     {
@@ -636,7 +653,7 @@ sub update_entry
     
     if ($idx <= $#{$self->{time_table}})
     {
-        my $new_entry = $self->deep_copy_entry($entry);
+        my $new_entry = $self->_deep_copy_entry($entry);
         $new_entry->{dispatcher} = $self->{dispatcher} 
           unless $new_entry->{dispatcher};
         $new_entry->{args} = []
@@ -667,12 +684,12 @@ are recognized:
 
 =over
 
-=item   detach    
+=item detach    
 
 If set to a true value the scheduler process is detached from the current
 process (UNIX only).
 
-=item  pid_file  
+=item pid_file  
 
 If running in daemon mode, name the optional file, in which the process id of
 the scheduler process should be written. By default, no PID File will be
@@ -707,7 +724,7 @@ sub run
 
     my $log = $cfg->{log};
 
-    $self->build_initial_queue;
+    $self->_build_initial_queue;
     delete $self->{entries_changed};
     die "Nothing in schedule queue" unless @{$self->{queue}};
     
@@ -734,7 +751,7 @@ sub run
                 {
                     $log->(0,"Schedule::Cron - Skipping job $index")
                       if $log;
-                    $self->update_queue($index);
+                    $self->_update_queue($index);
                     next;
                 }
             }
@@ -742,7 +759,7 @@ sub run
             {
                 $sleep = $time - $now;
             }
-            $0 = $self->get_process_prefix()." MainLoop - next: ".scalar(localtime($time));
+            $0 = $self->_get_process_prefix()." MainLoop - next: ".scalar(localtime($time));
             die "No time found\n" unless $time;
 
             dbg "R: sleep = $sleep | ",scalar(localtime($time))," (",scalar(localtime($now)),")";
@@ -752,14 +769,14 @@ sub run
                 $sleep = $time - time;
             }
 
-            $self->execute($index,$cfg);
+            $self->_execute($index,$cfg);
 
             if ($self->{entries_changed}) {
                dbg "rebuilding queue";
-               $self->build_initial_queue;
+               $self->_build_initial_queue;
                delete $self->{entries_changed};
             } else {
-               $self->update_queue($index);
+               $self->_update_queue($index);
             }
         } 
     };
@@ -821,7 +838,7 @@ sub run
             }
             open STDERR, '>&STDOUT' or die "Can't dup stdout: $!";
             
-            $0 = $self->get_process_prefix()." MainLoop";
+            $0 = $self->_get_process_prefix()." MainLoop";
             &$mainloop();
         }
     } 
@@ -976,17 +993,17 @@ sub get_next_execution_time
       # Special check for which time is lower (Month-day or Week-day spec):
       my @bak = @{$expanded[4]};
       $expanded[4] = [ '*' ];
-      my $t1 = $self->calc_time($now,\@expanded);
+      my $t1 = $self->_calc_time($now,\@expanded);
       $expanded[4] = \@bak;
       $expanded[2] = [ '*' ];
-      my $t2 = $self->calc_time($now,\@expanded);
+      my $t2 = $self->_calc_time($now,\@expanded);
       dbg "MDay : ",scalar(localtime($t1))," -- WDay : ",scalar(localtime($t2));
       return $t1 < $t2 ? $t1 : $t2;
   } 
   else 
   {
       # No conflicts possible:
-      return $self->calc_time($now,\@expanded);
+      return $self->_calc_time($now,\@expanded);
   }
 }
 
@@ -996,19 +1013,19 @@ sub get_next_execution_time
 
 # Build up executing queue and delete any
 # existing entries
-sub build_initial_queue 
+sub _build_initial_queue 
 { 
     my $self = shift;
     $self->{queue} = [ ];
     #  dbg "TT: ",$#{$self->{time_table}};
     for my $id (0..$#{$self->{time_table}}) 
     {
-        $self->update_queue($id);
+        $self->_update_queue($id);
     }
 }
 
 # deeply copy an entry in the time table
-sub deep_copy_entry
+sub _deep_copy_entry
 {
     my ($self,$entry) = @_;
 
@@ -1019,7 +1036,7 @@ sub deep_copy_entry
 }
 
 # Execute a subroutine whose time has come
-sub execute 
+sub _execute 
 { 
   my $self = shift;
   my $index = shift;
@@ -1057,18 +1074,19 @@ sub execute
   }
 
 
-  my $args_label = @args ? "with (".join(",",$self->prepare_args(@args)).")" : "";
-  $0 = $self->get_process_prefix()." Dispatch $args_label"
+  my $args_label = @args ? "with (".join(",",$self->_format_args(@args)).")" : "";
+  $0 = $self->_get_process_prefix()." Dispatch $args_label"
     unless $cfg->{nofork};
   $log->(0,"Schedule::Cron - Starting job $index $args_label")
     if $log;
 
+  my $dispatch_result;
   if ($cfg->{catch})
   {
       # Evaluate dispatcher
       eval
       {
-          &$dispatch(@args);
+          $dispatch_result = &$dispatch(@args);
       };
       if ($@)
       {
@@ -1079,7 +1097,24 @@ sub execute
   else
   {
       # Let dispatcher die if needed.
-      &$dispatch(@args);
+      $dispatch_result = &$dispatch(@args);
+  }
+  
+  if($cfg->{after_job}) {
+      my $job = $cfg->{after_job};
+      if (ref($job) eq "CODE") {
+          eval
+          {
+              &$job($dispatch_result,@args);
+          };
+          if ($@)
+          {
+              $log->(2,"Schedule::Cron - Error while calling after_job callback with retval = $dispatch_result: $@")
+                if $log;
+          }
+      } else {
+          $log->(2,"Schedule::Cron - Invalid after_job callback, it's not a code ref (but ",$job,")");
+      }
   }
 
   $log->(0,"Schedule::Cron - Finished job $index") if $log;
@@ -1087,7 +1122,7 @@ sub execute
 }
 
 # Udate the scheduler queue with a new entry
-sub update_queue 
+sub _update_queue 
 { 
     my $self = shift;
     
@@ -1104,8 +1139,8 @@ sub update_queue
 
 # The heart of the module.
 # calulate the next concrete date
-# for execution from a cronta entry
-sub calc_time 
+# for execution from a crontab entry
+sub _calc_time 
 { 
     my $self = shift;
     my $now = shift;
@@ -1121,19 +1156,21 @@ sub calc_time
     # $now_... : the current date, fixed at call time
     # $dest_...: date used for backtracking. At the end, it contains
     #            the desired lowest matching date
-    
+
     my ($dest_mon,$dest_mday,$dest_wday,$dest_hour,$dest_min,$dest_sec,$dest_year) = 
       ($now_mon,$now_mday,$now_wday,$now_hour,$now_min,$now_sec,$now_year);
-    
+
+    # dbg Dumper($expanded);
+
+    # Airbag...
     while ($dest_year <= $now_year + 1) 
-    { # Airbag...
+    { 
         dbg "Parsing $dest_hour:$dest_min:$dest_sec $dest_year/$dest_mon/$dest_mday";
-        
         
         # Check month:
         if ($expanded->[3]->[0] ne '*') 
         {
-            unless (defined ($dest_mon = $self->get_nearest($dest_mon,$expanded->[3]))) 
+            unless (defined ($dest_mon = $self->_get_nearest($dest_mon,$expanded->[3]))) 
             {
                 $dest_mon = $expanded->[3]->[0];
                 $dest_year++;
@@ -1149,7 +1186,7 @@ sub calc_time
             } 
             else 
             {
-                unless (defined ($dest_mday = $self->get_nearest($dest_mday,$expanded->[2]))) 
+                unless (defined ($dest_mday = $self->_get_nearest($dest_mday,$expanded->[2]))) 
                 {
                     # Next day matched is within the next month. ==> redo it
                     $dest_mday = $expanded->[2]->[0];
@@ -1172,7 +1209,7 @@ sub calc_time
         # Check for day of week:
         if ($expanded->[4]->[0] ne '*') 
         {
-            $dest_wday = $self->get_nearest($dest_wday,$expanded->[4]);
+            $dest_wday = $self->_get_nearest($dest_wday,$expanded->[4]);
             $dest_wday = $expanded->[4]->[0] unless $dest_wday;
     
             my ($mon,$mday,$year);
@@ -1184,7 +1221,7 @@ sub calc_time
             $mon++;
             $year += 1900;
             
-            dbg "$mday/$mon/$year";
+            dbg "Calculated $mday/$mon/$year for weekday ",$WDAYS[$dest_wday];
             if ($mon != $dest_mon || $year != $dest_year) {
                 dbg "backtracking";
                 $dest_mon = $mon;
@@ -1204,18 +1241,19 @@ sub calc_time
                 $dest_mday = ($dest_mon == $now_mon ? $dest_mday : 1);
             }
         }
+
   
         # Check for hour
         if ($expanded->[1]->[0] ne '*') 
         {
-            if ($dest_mday != $now_mday) 
+            if ($dest_mday != $now_mday || $dest_mon != $now_mon || $dest_year != $now_year) 
             {
                 $dest_hour = $expanded->[1]->[0];
             } 
             else 
             {
-#       dbg "Checking for next hour $dest_hour";
-                unless (defined ($dest_hour = $self->get_nearest($dest_hour,$expanded->[1]))) 
+                #dbg "Checking for next hour $dest_hour";
+                unless (defined ($dest_hour = $self->_get_nearest($dest_hour,$expanded->[1]))) 
                 {
                     # Hour to match is at the next day ==> redo it
                     $dest_hour = $expanded->[1]->[0];
@@ -1237,13 +1275,13 @@ sub calc_time
         # Check for minute
         if ($expanded->[0]->[0] ne '*') 
         {
-            if ($dest_hour != $now_hour) 
+            if ($dest_hour != $now_hour || $dest_mday != $now_mday || $dest_mon != $dest_mon || $dest_year != $now_year) 
             {
                 $dest_min = $expanded->[0]->[0];
             } 
             else 
             {
-                unless (defined ($dest_min = $self->get_nearest($dest_min,$expanded->[0]))) 
+                unless (defined ($dest_min = $self->_get_nearest($dest_min,$expanded->[0]))) 
                 {
                     # Minute to match is at the next hour ==> redo it
                     $dest_min = $expanded->[0]->[0];
@@ -1259,7 +1297,11 @@ sub calc_time
         } 
         else 
         {
-            $dest_min = ($dest_hour == $now_hour ? $dest_min : 0);
+            if ($dest_hour != $now_hour ||
+                $dest_mday != $now_mday ||
+                $dest_year != $now_year) {
+                $dest_min = 0;
+            } 
         }
 
         # Check for seconds
@@ -1273,7 +1315,7 @@ sub calc_time
                 } 
                 else 
                 {
-                    unless (defined ($dest_sec = $self->get_nearest($dest_sec,$expanded->[5]))) 
+                    unless (defined ($dest_sec = $self->_get_nearest($dest_sec,$expanded->[5]))) 
                     {
                         # Second to match is at the next minute ==> redo it
                         $dest_sec = $expanded->[5]->[0];
@@ -1297,20 +1339,42 @@ sub calc_time
         {
             $dest_sec = 0;
         }
-
         
         # We did it !!
         my $date = sprintf("%2.2d:%2.2d:%2.2d %4.4d/%2.2d/%2.2d",
                            $dest_hour,$dest_min,$dest_sec,$dest_year,$dest_mon,$dest_mday);
-        dbg "Next execution time: $date ",
-          $WDAYS[$dest_wday];
-        return parsedate($date);
+        dbg "Next execution time: $date ",$WDAYS[$dest_wday];
+        my $result = parsedate($date, VALIDATE => 1);
+        # Check for a valid date
+        if ($result)
+        {
+            # Valid date... return it!
+            return $result;
+        }
+        else
+        {
+            # Invalid date i.e. (02/30/2008). Retry it with another, possibly
+            # valid date            
+            my $t = parsedate($date); print scalar(localtime($t)),"\n";
+            ($dest_hour,$dest_mday,$dest_mon,$dest_year,$dest_wday) =
+              (localtime(parsedate(" + 1 second",NOW=>$t)))  [2,3,4,5,6];
+            $dest_mon++;
+            $dest_year += 1900;
+            next;
+        }
     }
+
+    # Die with an error because we couldnt find a next execution entry
+    my $dumper = new Data::Dumper($expanded);
+    $dumper->Terse(1);
+    $dumper->Indent(0);
+
+    die "No suitable next execution time found for ",$dumper->Dump(),", now == ",scalar(localtime($now)),"\n";
 }
 
 # get next entry in list or 
 # undef if is the highest entry found
-sub get_nearest 
+sub _get_nearest 
 { 
   my $self = shift;
   my $x = shift;
@@ -1327,36 +1391,18 @@ sub get_nearest
 
 
 # prepare a list of object for pretty printing e.g. in the process list
-sub prepare_args {
+sub _format_args {
     my $self = shift;
     my @args = @_;
-    my @ret = ();
-    for my $arg (@args)
-    {
-        if (ref($arg) eq 'HASH') 
-        {
-            my $val = "{";
-            foreach my $key (keys %{$arg}) 
-            {
-                $val .= "$key=>".$args[0]->{$key}.", ";
-            }
-            if (length($val)>1)
-            {
-                chop $val; chop $val;
-            }
-            $val .= "}";
-            push @ret,$val;
-        } 
-        else
-        {
-            push @ret,$arg;
-        }         
-    }
-    return @ret;
+    my $dumper = new Data::Dumper(\@args);
+    $dumper->Terse(1);
+    $dumper->Maxdepth(2);
+    $dumper->Indent(0);
+    return $dumper->Dump();
 }
 
 # get the prefix to use when setting $0
-sub get_process_prefix { 
+sub _get_process_prefix { 
     my $self = shift;
     my $prefix = $self->{cfg}->{processprefix} || "Schedule::Cron";
     return $prefix;
@@ -1390,14 +1436,14 @@ sub report_exectime_bug
   my $endless = shift;
   my $time = time;
   my $inp;
-  my $now = $self->time_as_string($time);
+  my $now = $self->_time_as_string($time);
   my $email;
 
   do 
   {
       while (1) 
       {
-          $inp = $self->get_input("Reference time\n(default: $now)  : ");
+          $inp = $self->_get_input("Reference time\n(default: $now)  : ");
           if ($inp) 
           {
               parsedate($inp) || (print "Couldn't parse \"$inp\"\n",next);
@@ -1411,7 +1457,7 @@ sub report_exectime_bug
       my @entries;
       while (1) 
       {
-          $inp = $self->get_input("Crontab time (5 columns)            : ");
+          $inp = $self->_get_input("Crontab time (5 columns)            : ");
           @entries = split (/\s+/,$inp);
           if (@entries != 5) 
           {
@@ -1440,7 +1486,7 @@ sub report_exectime_bug
         
           if ($next_time > 0) 
           {
-              $next = $self->time_as_string($next_time);
+              $next = $self->_time_as_string($next_time);
           } else 
           {
               $next = "Run into infinite loop !!";
@@ -1451,13 +1497,13 @@ sub report_exectime_bug
       my ($expected,$expected_time);
       while (1) 
       {
-          $inp = $self->get_input("Expected time                       : ");
+          $inp = $self->_get_input("Expected time                       : ");
           unless ($expected_time = parsedate($inp)) 
           {
               print "Couldn't parse \"$inp\"\n";
               next;
           } 
-          $expected = $self->time_as_string($expected_time);
+          $expected = $self->_time_as_string($expected_time);
           last;
       }
     
@@ -1473,7 +1519,7 @@ sub report_exectime_bug
 Congratulation, you hit a bug. 
 
 EOT
-          $email = $self->get_input("Your E-Mail Address (if available)  : ") 
+          $email = $self->_get_input("Your E-Mail Address (if available)  : ") 
             unless defined($email);
           $email = "" unless defined($email);
       
@@ -1508,7 +1554,7 @@ EOT
 }
 
 my ($input_initialized,$term);
-sub get_input 
+sub _get_input 
 { 
   my $self = shift;
   my $prompt = shift;
@@ -1546,7 +1592,7 @@ sub get_input
   }
 }
 
-sub time_as_string 
+sub _time_as_string 
 { 
   my $self = shift;
   my $time = shift; 
@@ -1572,9 +1618,9 @@ Provide a C<reload()> method for reexaming the crontab file
 =back
 
 
-=head1 COPYRIGHT
+=head1 LICENSE
 
-Copyright 1999-2006 Roland Huss.
+Copyright 1999-2009 Roland Huss.
 
 This library is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
