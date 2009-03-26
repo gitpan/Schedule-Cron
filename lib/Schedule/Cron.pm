@@ -81,7 +81,7 @@ BEGIN {
 }
 
 
-$VERSION = "0.97_01";
+$VERSION = "0.97_02";
 
 our $DEBUG = 0;
 my %STARTEDCHILD = ();
@@ -753,14 +753,16 @@ sub run
                       if $log;
                     $self->_update_queue($index);
                     next;
-                }
+                }  
             }
             else
             {
                 $sleep = $time - $now;
             }
             $0 = $self->_get_process_prefix()." MainLoop - next: ".scalar(localtime($time));
-            die "No time found\n" unless $time;
+            if (!$time) {
+                die "Internal: No time found, self: ",$self->{queue},"\n" unless $time;
+            }
 
             dbg "R: sleep = $sleep | ",scalar(localtime($time))," (",scalar(localtime($now)),")";
             while ($sleep > 0) 
@@ -981,9 +983,12 @@ sub get_next_execution_time
               push @res,$t;
           }
       }
-      push @expanded, ($#res == 0 && $res[0] eq '*') ? [@res] : [ sort { $a <=> $b} @res];
+      push @expanded, ($#res == 0 && $res[0] eq '*') ? [ "*" ] : [ sort {$a <=> $b} @res];
   }
   
+  # Check for strange bug
+  $self->_verify_expanded_cron_entry($cron_entry,\@expanded);
+
   # Calculating time:
   # =================
   my $now = $time || time;
@@ -1603,6 +1608,26 @@ sub _time_as_string
   $wday = $WDAYS[$wday];
   return sprintf("%2.2d:%2.2d %2.2d/%2.2d/%4.4d %s",
                  $hour,$min,$mday,$month,$year,$wday);
+}
+
+
+# As reported by RT Ticket #24712 sometimes, 
+# the expanded version of the cron entry is flaky.
+# However, this occurs only very rarely and randomly. 
+# So, we need to provide good diagnostics when this 
+# happens
+sub _verify_expanded_cron_entry {
+    my $self = shift;
+    my $original = shift;
+    my $entry = shift;
+    die "Internal: Not an array ref. Orig: ",Dumper($original), ", expanded: ",Dumper($entry)," (self = ",Dumper($self),")"
+      unless ref($entry) eq "ARRAY";
+    
+    for my $i (0 .. $#{$entry}) {
+        die "Internal: Part $i of entry is not an array ref. Original: ",
+          Dumper($original),", expanded: ",Dumper($entry)," (self=",Dumper($self),")",
+            unless ref($entry->[$i]) eq "ARRAY";
+    }    
 }
 
 =back
