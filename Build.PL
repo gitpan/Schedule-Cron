@@ -17,14 +17,15 @@ my $build = Module::Build->new
    
    build_requires => {
                       "Test::More" => "0",
-                      "Test" => "0"
+                      "Test" => "0",
+                      "Time::Mock" => "0",
                      },                       
    recommends => {
                   "ioctl.ph" => 0,
                   "sys::ioctl.ph" => 0,
                   "Module::Build" => 0
                  },
-   keywords => [  "Cron", "Scheduler", "Jon" ],
+   keywords => [  "Cron", "Scheduler", "Job" ],
    provides => {
                 "Schedule::Cron" => {
                                file =>  "lib/Schedule/Cron.pm"
