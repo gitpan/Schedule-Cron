@@ -1,6 +1,6 @@
 ---
 name: Schedule-Cron
-version: 0.99_1
+version: 0.99_2
 author:
   - Roland Huss (roland@cpan.org)
 abstract: cron-like scheduler for Perl subroutines
@@ -10,7 +10,6 @@ resources:
 build_requires:
   Test: 0
   Test::More: 0
-  Time::Mock: 0
 requires:
   Data::Dumper: 0
   Time::ParseDate: 99.00
@@ -23,7 +22,7 @@ configure_requires:
 provides:
   Schedule::Cron:
     file: lib/Schedule/Cron.pm
-    version: 0.99_1
+    version: 0.99_2
 generated_by: Module::Build version 0.34
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
