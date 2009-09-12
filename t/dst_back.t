@@ -17,6 +17,7 @@ my @refs = (
            );
 
 # First check for timezones available:
+no warnings;
 $ENV{TZ} = undef;
 my $tt = time;
 my $local = scalar(localtime($tt));
