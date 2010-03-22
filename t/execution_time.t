@@ -20,7 +20,6 @@ my $time;
 my $skip = 0;
 while (defined($_=<DATA>) && $_ !~ /^end/i) {
   chomp;
-  next if $skip;
   if (/^Reftime:\s*(.*)$/) {
       $time = $1;
       $time =~ s/\#.*$//;
@@ -35,6 +34,7 @@ while (defined($_=<DATA>) && $_ !~ /^end/i) {
       $skip = 0;
       next;
   }
+  next if $skip;
   s/^\s*(.*)\s*/$1/;
   next if /^\#/ || /^$/;
   my @args = split(/\s+/,$_,6);
@@ -206,6 +206,11 @@ Reftime: Fri Jan 27 12:01:00 2009
 # Reported by : tenbrink
 Reftime: 23:00 2007/09/01
        0 23 * * 1                                      23:00 03/09/2007 Monday
+
+# -----------------------------------------------------------------------------
+# Reported by : tenbrink
+Reftime: 23:00:55 2007/09/01
+       * * * * * */10                                  23:01:00 01/09/2007 Saturday
 
 
 

@@ -41,15 +41,15 @@ as crontab entry (see L<"METHODS">, C<add_entry()> and L<crontab(5)>)
 
 The philosophy behind C<Schedule::Cron> is to call subroutines periodically
 from within one single Perl program instead of letting C<cron> trigger several
-(possibly different) perl scripts. Everything under one roof.  Furthermore
+(possibly different) Perl scripts. Everything under one roof.  Furthermore,
 C<Schedule::Cron> provides mechanism to create crontab entries dynamically,
 which isn't that easy with C<cron>.
 
 C<Schedule::Cron> knows about all extensions (well, at least all extensions I'm
 aware of, i.e those of the so called "Vixie" cron) for crontab entries like
-ranges including 'steps', specification of month and days of the week by name
-or coexistence of lists and ranges in the same field.  And even a bit more
-(like lists and ranges with symbolic names).
+ranges including 'steps', specification of month and days of the week by name,
+or coexistence of lists and ranges in the same field.  It even supports a bit
+more (like lists and ranges with symbolic names).
 
 =head1 METHODS
 
@@ -79,7 +79,7 @@ BEGIN {
 }
 
 
-$VERSION = "0.99";
+$VERSION = "1.00_1";
 
 our $DEBUG = 0;
 my %STARTEDCHILD = ();
@@ -110,7 +110,7 @@ my @RANGES = (
               [ 0,31 ],
               [ 0,12 ],
               [ 0,7  ],
-              [ 0,60 ]
+              [ 0,59 ]
              );
 
 my @LOWMAP = ( 
@@ -125,12 +125,13 @@ my @LOWMAP = (
 sub REAPER {
     if ($HAS_POSIX)
     {
-        # Only on platforms supporting POSIX semantisc
         foreach my $pid (keys %STARTEDCHILD) {
-            my $res = $HAS_POSIX ? waitpid($pid, WNOHANG) : waitpid($pid,0);
-            if ($res > 0) {
-                # We reaped a truly running process
-                delete $STARTEDCHILD{$pid};
+            if ($STARTEDCHILD{$pid}) {
+                my $res = $HAS_POSIX ? waitpid($pid, WNOHANG) : waitpid($pid,0);
+                if ($res > 0) {
+                    # We reaped a truly running process
+                    $STARTEDCHILD{$pid} = 0;
+                }
             }
         }
     } 
@@ -140,6 +141,17 @@ sub REAPER {
         while($waitedpid != -1) {
             $waitedpid = wait;
         }
+    }
+}
+
+# Cleaning is done in extrac method called from the main 
+# process in order to avoid event handlers modifying this
+# global hash which can leed to memory errors
+# See #55741 on rt.cpan.org for more details on this
+# This method is called in strategic places.
+sub _cleanup_process_list {
+    for my $k (keys %STARTEDCHILD) {
+        delete $STARTEDCHILD{$k} unless $STARTEDCHILD{$k};
     }
 }
 
@@ -625,6 +637,20 @@ sub delete_entry
     if ($idx <= $#{$self->{time_table}})
     {
         $self->{entries_changed} = 1;
+
+        # Remove entry from $self->{map} which 
+        # remembers the index in the timetable by name (==id)
+        # and update all larger indexes appropriately
+        # Fix for #54692
+        my $map = $self->{map};
+        foreach my $key (keys %{$map}) {
+            if ($map->{$key} > $idx) {
+                $map->{$key}--;
+            } elsif ($map->{$key} == $idx) {
+                delete $map->{$key};
+            }
+        }
+        
         return splice @{$self->{time_table}},$idx,1;
     }
     else
@@ -636,8 +662,8 @@ sub delete_entry
 =item $cron->update_entry($idx,$entry)
 
 Updates the entry with index C<$idx>. C<$entry> is a hash ref as descibed in
-C<list_entries()> and must contain at least a value C<$entry->{time}>. If no
-C<$entry->{dispatcher}> is given, then the default dispatcher is used.  This
+C<list_entries()> and must contain at least a value C<$entry-E<gt>{time}>. If no
+C<$entry-E<gt>{dispatcher}> is given, then the default dispatcher is used.  This
 method returns the old entry on success, C<undef> otherwise.
 
 =cut 
@@ -772,6 +798,7 @@ sub run
             }
 
             $self->_execute($index,$cfg);
+            $self->_cleanup_process_list;
 
             if ($self->{entries_changed}) {
                dbg "rebuilding queue";
