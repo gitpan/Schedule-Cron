@@ -79,7 +79,7 @@ BEGIN {
 }
 
 
-$VERSION = "1.00_1";
+$VERSION = "1.00";
 
 our $DEBUG = 0;
 my %STARTEDCHILD = ();
@@ -123,6 +123,7 @@ my @LOWMAP = (
              );
 
 sub REAPER {
+    local ($!,%!);
     if ($HAS_POSIX)
     {
         foreach my $pid (keys %STARTEDCHILD) {
@@ -144,10 +145,10 @@ sub REAPER {
     }
 }
 
-# Cleaning is done in extrac method called from the main 
+# Cleaning is done in extra method called from the main 
 # process in order to avoid event handlers modifying this
-# global hash which can leed to memory errors
-# See #55741 on rt.cpan.org for more details on this
+# global hash which can lead to memory errors.
+# See #55741 on rt.cpan.org for more details on this.
 # This method is called in strategic places.
 sub _cleanup_process_list {
     for my $k (keys %STARTEDCHILD) {
