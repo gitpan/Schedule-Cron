@@ -2,7 +2,18 @@
 
 - Fix for RT #56926 which causes systems without SIGCHLD to exit on
   after 64 forked processes
-
+- Patch for Makefile.PL applied which seems to have problems after the 
+  reorganisation of the directory layout (RT #57914)
+- Fix for RT #63089 which left over a time-window of 1 sec where
+  Schedule::Cron could run havoc.
+- Fixes for RT #68530 ("Exposing too much information..."), #68450
+  ("Crash scheduling empty queue") and #68533 ("Thou shalt not REAP
+  what thou has not forked...") provided by tlhackque. Thanks a lot !
+- New options:
+  * loglevel: Tuning of logoutput
+  * nostatus: Avoid setting $0 to next schedule time
+  * sleep: Custom sleep() function between two calls
+  
 1.00
 
 - Fix for RT #54692 occured when removing an entry
