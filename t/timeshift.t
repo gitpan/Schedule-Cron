@@ -14,4 +14,4 @@ eval {
     $cron->run();
 };
 my $delta = time - $now;
-ok($delta <= 2,"Call was shifted by " . $delta . " seconds (<= 2)");
+ok($delta <= 3,"Call was shifted by " . $delta . " seconds (<= 3)");
